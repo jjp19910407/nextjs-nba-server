@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { news, users, userStars } from '@/db/schema';
 import { verifyToken } from '@/lib/jwt';
+import { eq, desc, and, inArray } from 'drizzle-orm';
+import { sql as drizzleSql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'hot';
 
-    let news;
+    let newsList;
 
     if (type === 'hot') {
-      news = await sql`SELECT * FROM news WHERE type = 'hot' ORDER BY published_at DESC LIMIT 20`;
+      newsList = await db.select().from(news).where(eq(news.type, 'hot')).orderBy(desc(news.publishedAt)).limit(20);
     } else {
       // team/star 类型需要关联用户信息
       const authHeader = request.headers.get('Authorization');
@@ -19,21 +22,24 @@ export async function GET(request: NextRequest) {
 
       if (payload) {
         if (type === 'team') {
-          const [user] = await sql`SELECT main_team_id FROM users WHERE id = ${payload.userId}`;
-          if (user?.main_team_id) {
-            news = await sql`SELECT * FROM news WHERE related_team_id = ${user.main_team_id} ORDER BY published_at DESC LIMIT 20`;
+          const user = await db.query.users.findFirst({
+            where: eq(users.id, payload.userId),
+            columns: { mainTeamId: true }
+          });
+          if (user?.mainTeamId) {
+            newsList = await db.select().from(news).where(eq(news.relatedTeamId, user.mainTeamId)).orderBy(desc(news.publishedAt)).limit(20);
           }
         } else if (type === 'star') {
-          const userStars = await sql`SELECT star_id FROM user_stars WHERE user_id = ${payload.userId}`;
-          const starIds = userStars.map((s: any) => s.star_id);
+          const userStarList = await db.select({ starId: userStars.starId }).from(userStars).where(eq(userStars.userId, payload.userId));
+          const starIds = userStarList.map(s => s.starId);
           if (starIds.length > 0) {
-            news = await sql`SELECT * FROM news WHERE related_star_ids && ${starIds} ORDER BY published_at DESC LIMIT 20`;
+            newsList = await db.select().from(news).where(drizzleSql`${news.relatedStarIds} && ${starIds}`).orderBy(desc(news.publishedAt)).limit(20);
           }
         }
       }
     }
 
-    if (!news || news.length === 0) {
+    if (!newsList || newsList.length === 0) {
       const mockNews = [
         { id: 1, title: 'NBA官宣：全明星投票正式开启', cover: 'https://picsum.photos/400/200?random=1', time: '2026-05-15', type: 'hot' },
         { id: 2, title: '詹姆斯砍下40+大三双率队逆转', cover: 'https://picsum.photos/400/200?random=2', time: '2026-05-14', type: 'hot' },
@@ -42,7 +48,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ code: 0, msg: '获取成功', data: mockNews });
     }
 
-    return NextResponse.json({ code: 0, msg: '获取成功', data: news });
+    return NextResponse.json({ code: 0, msg: '获取成功', data: newsList });
 
   } catch (error) {
     console.error('Get news error:', error);

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { stars, teams } from '@/db/schema';
+import { desc, ilike, or, eq } from 'drizzle-orm';
 
 export async function GET(request: Request) {
   try {
@@ -7,27 +9,35 @@ export async function GET(request: Request) {
     const keyword = searchParams.get('keyword') || '';
 
     if (!keyword) {
-      const stars = await sql`
-        SELECT s.id, s.name, s.name_en AS nameEn, s.avatar, s.position, s.team_id AS teamId, t.name AS teamName
-        FROM stars s
-        LEFT JOIN teams t ON s.team_id = t.id
-        ORDER BY s.pts DESC
-        LIMIT 20
-      `;
-      return NextResponse.json({ code: 0, msg: '获取成功', data: stars });
+      const starList = await db.select({
+        id: stars.id,
+        name: stars.name,
+        nameEn: stars.nameEn,
+        avatar: stars.avatar,
+        position: stars.position,
+        teamId: stars.teamId,
+        teamName: teams.name
+      }).from(stars).leftJoin(teams, eq(stars.teamId, teams.id)).orderBy(desc(stars.pts)).limit(20);
+      return NextResponse.json({ code: 0, msg: '获取成功', data: starList });
     }
 
     // 模糊匹配搜索球星
-    const stars = await sql`
-      SELECT s.id, s.name, s.name_en AS nameEn, s.avatar, s.position, s.team_id AS teamId, t.name AS teamName
-      FROM stars s
-      LEFT JOIN teams t ON s.team_id = t.id
-      WHERE s.name ILIKE ${'%' + keyword + '%'} OR s.name_en ILIKE ${'%' + keyword + '%'}
-      ORDER BY s.pts DESC
-      LIMIT 20
-    `;
+    const starList = await db.select({
+      id: stars.id,
+      name: stars.name,
+      nameEn: stars.nameEn,
+      avatar: stars.avatar,
+      position: stars.position,
+      teamId: stars.teamId,
+      teamName: teams.name
+    }).from(stars).leftJoin(teams, eq(stars.teamId, teams.id)).where(
+      or(
+        ilike(stars.name, `%${keyword}%`),
+        ilike(stars.nameEn, `%${keyword}%`)
+      )
+    ).orderBy(desc(stars.pts)).limit(20);
 
-    return NextResponse.json({ code: 0, msg: '获取成功', data: stars });
+    return NextResponse.json({ code: 0, msg: '获取成功', data: starList });
 
   } catch (error) {
     console.error('Search stars error:', error);

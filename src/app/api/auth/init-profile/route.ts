@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { users } from '@/db/schema';
 import { verifyToken } from '@/lib/jwt';
+import { eq, and, ne } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,26 +20,21 @@ export async function POST(request: NextRequest) {
 
     // 手机号验重（排除当前用户自己）
     if (phone) {
-      const existing = await sql`
-        SELECT id FROM users WHERE phone = ${phone} AND id != ${payload.userId}
-      `;
-      if (existing.length > 0) {
+      const existing = await db.query.users.findFirst({
+        where: and(eq(users.phone, phone), ne(users.id, payload.userId)),
+        columns: { id: true }
+      });
+      if (existing) {
         return NextResponse.json({ code: 1, msg: '该手机号已被其他账号绑定' });
       }
-
-      // TODO: 后续扩展短信验证码校验
-      // const verified = await verifySmsCode(phone, smsCode);
-      // if (!verified) return NextResponse.json({ code: 1, msg: '验证码错误或已过期' });
     }
 
-    await sql`
-      UPDATE users
-      SET nickname   = ${nickname},
-          avatar_url = ${avatarUrl || null},
-          phone      = ${phone || null},
-          status     = 'active'
-      WHERE id = ${payload.userId}
-    `;
+    await db.update(users).set({
+      nickname,
+      avatarUrl: avatarUrl || null,
+      phone: phone || null,
+      status: 'active'
+    }).where(eq(users.id, payload.userId));
 
     return NextResponse.json({ code: 0, msg: '注册成功' });
   } catch (error) {

@@ -1,19 +1,29 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { stars, teams } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 // 今日之星（迭代一：返回单个MVP球员，Mock数据）
 export async function GET() {
   try {
     // Mock: 默认展示勒布朗·詹姆斯，实际可以根据当日比赛数据更新
-    const [mvp] = await sql`
-      SELECT s.*, t.name as team_name, t.logo as team_logo
-      FROM stars s
-      LEFT JOIN teams t ON s.team_id = t.id
-      WHERE s.id = 23 -- 詹姆斯
-      LIMIT 1
-    `;
+    const mvp = await db.select({
+      id: stars.id,
+      name: stars.name,
+      nameEn: stars.nameEn,
+      teamId: stars.teamId,
+      avatar: stars.avatar,
+      position: stars.position,
+      pts: stars.pts,
+      reb: stars.reb,
+      ast: stars.ast,
+      stl: stars.stl,
+      blk: stars.blk,
+      teamName: teams.name,
+      teamLogo: teams.logo
+    }).from(stars).leftJoin(teams, eq(stars.teamId, teams.id)).where(eq(stars.id, 23)).limit(1);
 
-    if (!mvp) {
+    if (!mvp || mvp.length === 0) {
       // 如果数据库没有，返回模拟数据
       return NextResponse.json({
         code: 0,
@@ -35,10 +45,15 @@ export async function GET() {
       });
     }
 
+    const result = mvp[0];
     return NextResponse.json({
       code: 0,
       msg: '获取成功',
-      data: mvp
+      data: {
+        ...result,
+        team: result.teamName,
+        teamLogo: result.teamLogo
+      }
     });
 
   } catch (error) {

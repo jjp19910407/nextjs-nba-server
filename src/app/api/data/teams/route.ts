@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { teams } from '@/db/schema';
+import { desc } from 'drizzle-orm';
 
 export async function GET() {
   try {
-    const teams = await sql`
-      SELECT * FROM teams ORDER BY win_pct DESC
-    `;
+    const teamList = await db.select().from(teams).orderBy(desc(teams.winPct));
 
-    if (teams.length === 0) {
+    if (teamList.length === 0) {
       // 返回模拟数据
       const mockTeams = [
         { id: 1, name: '波士顿凯尔特人', nameEn: 'Boston Celtics', conference: 'East', logo: 'https://cdn.nba.com/logos/nba/1610612737/primary/L/logo.svg', wins: 57, losses: 25, winPct: 0.695 },
@@ -18,7 +18,7 @@ export async function GET() {
       return NextResponse.json({ code: 0, msg: '获取成功', data: mockTeams });
     }
 
-    return NextResponse.json({ code: 0, msg: '获取成功', data: teams });
+    return NextResponse.json({ code: 0, msg: '获取成功', data: teamList });
 
   } catch (error) {
     console.error('Get teams error:', error);

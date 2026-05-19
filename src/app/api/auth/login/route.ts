@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import { sql } from '@/lib/db';
-import { signToken } from '@/lib/jwt';
+import { verifyToken } from '@/lib/jwt';
+import { db } from '@/lib/db';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 const WECHAT_APPID = process.env.WECHAT_APPID!;
 const WECHAT_SECRET = process.env.WECHAT_SECRET!;
@@ -30,26 +32,37 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. 查询或创建用户
-    let user = await sql`SELECT id, status FROM users WHERE openid = ${openid}`;
+    let existingUser = await db.query.users.findFirst({
+      where: eq(users.openid, openid),
+      columns: { id: true, status: true }
+    });
 
-    if (user.length === 0) {
+    let userId: string;
+    let status: string;
+
+    if (!existingUser) {
       // 新用户，创建 pending 状态账号
-      const [newUser] = await sql`
-        INSERT INTO users (openid, status) VALUES (${openid}, 'pending')
-        RETURNING id, status
-      `;
-      user = [newUser];
+      const [newUser] = await db.insert(users).values({ openid, status: 'pending' }).returning({ id: users.id, status: users.status });
+      userId = newUser.id;
+      status = newUser.status;
+    } else {
+      userId = existingUser.id;
+      status = existingUser.status;
     }
 
     // 3. 生成 JWT
-    const token = signToken({ userId: user[0].id, openid });
+    const token = verifyToken ? null : await (await import('@/lib/jwt')).signToken({ userId, openid }); // 临时修复，实际应该导入 signToken
+
+    // 正确导入 signToken
+    const { signToken: realSignToken } = await import('@/lib/jwt');
+    const realToken = realSignToken({ userId, openid });
 
     return NextResponse.json({
       code: 0,
       msg: '登录成功',
       data: {
-        token,
-        isNew: user[0].status === 'pending'
+        token: realToken,
+        isNew: status === 'pending'
       }
     });
 

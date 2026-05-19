@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { users, userStars } from '@/db/schema';
 import { verifyToken } from '@/lib/jwt';
+import { eq } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,33 +14,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ code: 1, msg: '未授权' }, { status: 401 });
     }
 
-    const { nickname, slogan, years, age, teamId, stars } = await request.json();
-
-    // stars 格式: [{starId: 1, role: 'main'}, {starId: 2, role: 'sub'}, {starId: 3, role: 'sub'}]
+    // stars 格式: [{starId: 1, starName: '詹姆斯', role: 'main'}, ...]
+    const { nickname, avatarUrl, slogan, age, watchYears, teamId, teamName, stars } = await request.json();
 
     // 1. 更新用户主表
-    await sql`
-      UPDATE users
-      SET nickname = ${nickname},
-          slogan = ${slogan},
-          watch_years = ${years},
-          age = ${age},
-          main_team_id = ${teamId},
-          status = 'completed',
-          updated_at = NOW()
-      WHERE id = ${payload.userId}
-    `;
+    await db.update(users).set({
+      nickname: nickname ?? null,
+      avatarUrl: avatarUrl ?? null,
+      slogan: slogan ?? null,
+      age: age ?? null,
+      watchYears: watchYears ?? null,
+      mainTeamId: teamId ?? null,
+      mainTeamName: teamName ?? null,
+      status: 'completed',
+      updatedAt: new Date()
+    }).where(eq(users.id, payload.userId));
 
     // 2. 清理旧的球星关联
-    await sql`DELETE FROM user_stars WHERE user_id = ${payload.userId}`;
+    await db.delete(userStars).where(eq(userStars.userId, payload.userId));
 
     // 3. 插入新的球星关联（主球星权重1，副球星0.5）
-    for (const s of stars) {
-      const weight = s.role === 'main' ? 1.0 : 0.5;
-      await sql`
-        INSERT INTO user_stars (user_id, star_id, role, weight)
-        VALUES (${payload.userId}, ${s.starId}, ${s.role}, ${weight})
-      `;
+    if (stars && stars.length > 0) {
+      const starValues = stars.map((s: any) => ({
+        userId: payload.userId,
+        starId: s.starId,
+        starName: s.starName ?? null,
+        role: s.role,
+        weight: s.role === 'main' ? 1.0 : 0.5
+      }));
+      await db.insert(userStars).values(starValues);
     }
 
     return NextResponse.json({

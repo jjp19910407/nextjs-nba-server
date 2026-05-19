@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { verifyToken } from '@/lib/jwt';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 const WECHAT_APPID = process.env.WECHAT_APPID!;
 const WECHAT_SECRET = process.env.WECHAT_SECRET!;
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest) {
     const phone = phone_info.phoneNumber;
 
     // 更新用户手机号
-    await sql`UPDATE users SET phone = ${phone} WHERE id = ${payload.userId}`;
+    await db.update(users).set({ phone }).where(eq(users.id, payload.userId));
 
     return NextResponse.json({ code: 0, data: { phone } });
   } catch (error) {

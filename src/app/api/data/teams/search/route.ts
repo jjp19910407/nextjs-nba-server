@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { sql } from '@/lib/db';
+import { db } from '@/lib/db';
+import { teams } from '@/db/schema';
+import { desc, ilike, or } from 'drizzle-orm';
 
 export async function GET(request: Request) {
   try {
@@ -7,25 +9,31 @@ export async function GET(request: Request) {
     const keyword = searchParams.get('keyword') || '';
 
     if (!keyword) {
-      const teams = await sql`
-        SELECT id, name, name_en AS nameEn, conference, logo
-        FROM teams
-        ORDER BY win_pct DESC
-        LIMIT 20
-      `;
-      return NextResponse.json({ code: 0, msg: '获取成功', data: teams });
+      const teamList = await db.select({
+        id: teams.id,
+        name: teams.name,
+        nameEn: teams.nameEn,
+        conference: teams.conference,
+        logo: teams.logo
+      }).from(teams).orderBy(desc(teams.winPct)).limit(20);
+      return NextResponse.json({ code: 0, msg: '获取成功', data: teamList });
     }
 
     // 模糊匹配搜索球队
-    const teams = await sql`
-      SELECT id, name, name_en AS nameEn, conference, logo
-      FROM teams
-      WHERE name ILIKE ${'%' + keyword + '%'} OR name_en ILIKE ${'%' + keyword + '%'}
-      ORDER BY win_pct DESC
-      LIMIT 20
-    `;
+    const teamList = await db.select({
+      id: teams.id,
+      name: teams.name,
+      nameEn: teams.nameEn,
+      conference: teams.conference,
+      logo: teams.logo
+    }).from(teams).where(
+      or(
+        ilike(teams.name, `%${keyword}%`),
+        ilike(teams.nameEn, `%${keyword}%`)
+      )
+    ).orderBy(desc(teams.winPct)).limit(20);
 
-    return NextResponse.json({ code: 0, msg: '获取成功', data: teams });
+    return NextResponse.json({ code: 0, msg: '获取成功', data: teamList });
 
   } catch (error) {
     console.error('Search teams error:', error);
