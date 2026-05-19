@@ -32,10 +32,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. 查询或创建用户
-    let existingUser = await db.query.users.findFirst({
-      where: eq(users.openid, openid),
-      columns: { id: true, status: true }
-    });
+    let existingUserRows = await db
+      .select({ id: users.id, status: users.status })
+      .from(users)
+      .where(eq(users.openid, openid))
+      .limit(1);
+    let existingUser = existingUserRows[0];
 
     let userId: string;
     let status: string;

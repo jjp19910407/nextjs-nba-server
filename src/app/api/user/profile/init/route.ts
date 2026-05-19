@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { users, userStars } from '@/db/schema';
+import { users, userStars, stars } from '@/db/schema';
 import { verifyToken } from '@/lib/jwt';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
 
     // stars 格式: [{starId: 1, starName: '詹姆斯', role: 'main'}, ...]
-    const { nickname, avatarUrl, slogan, age, watchYears, teamId, teamName, stars } = await request.json();
+    const { nickname, avatarUrl, slogan, age, watchYears, teamId, teamName, stars: userStarsInput } = await request.json();
 
     // 1. 更新用户主表
     await db.update(users).set({
@@ -34,14 +34,37 @@ export async function POST(request: NextRequest) {
     await db.delete(userStars).where(eq(userStars.userId, payload.userId));
 
     // 3. 插入新的球星关联（主球星权重1，副球星0.5）
-    if (stars && stars.length > 0) {
-      const starValues = stars.map((s: any) => ({
-        userId: payload.userId,
-        starId: s.starId,
-        starName: s.starName ?? null,
-        role: s.role,
-        weight: s.role === 'main' ? 1.0 : 0.5
-      }));
+    if (userStarsInput && userStarsInput.length > 0) {
+      // 获取所有选中球星的原始数据
+      const starIds = userStarsInput.map((s: any) => s.starId);
+      const starDataList = await db.select().from(stars).where(inArray(stars.id, starIds));
+
+      // 创建一个map方便查找
+      const starDataMap = new Map();
+      starDataList.forEach((sd) => {
+        starDataMap.set(sd.id, sd);
+      });
+
+      // 构建要插入的数据
+      const starValues = userStarsInput.map((s: any) => {
+        const starData = starDataMap.get(s.starId);
+        return {
+          userId: payload.userId,
+          starId: s.starId,
+          starName: s.starName ?? starData?.name ?? null,
+          role: s.role,
+          weight: s.role === 'main' ? 1.0 : 0.5,
+          customAvatar: s.customAvatar ?? null,
+          // 从原始球星数据中复制荣誉
+          allNba: starData?.allNba ?? null,
+          allDefense: starData?.allDefense ?? null,
+          mvp: starData?.mvp ?? null,
+          fmvp: starData?.fmvp ?? null,
+          championships: starData?.championships ?? null,
+          allStar: starData?.allStar ?? null
+        };
+      });
+
       await db.insert(userStars).values(starValues);
     }
 

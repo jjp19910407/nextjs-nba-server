@@ -20,10 +20,12 @@ export async function POST(request: NextRequest) {
 
     // 手机号验重（排除当前用户自己）
     if (phone) {
-      const existing = await db.query.users.findFirst({
-        where: and(eq(users.phone, phone), ne(users.id, payload.userId)),
-        columns: { id: true }
-      });
+      const existingRows = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.phone, phone), ne(users.id, payload.userId)))
+        .limit(1);
+      const existing = existingRows[0];
       if (existing) {
         return NextResponse.json({ code: 1, msg: '该手机号已被其他账号绑定' });
       }

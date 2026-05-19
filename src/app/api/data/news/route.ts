@@ -22,10 +22,12 @@ export async function GET(request: NextRequest) {
 
       if (payload) {
         if (type === 'team') {
-          const user = await db.query.users.findFirst({
-            where: eq(users.id, payload.userId),
-            columns: { mainTeamId: true }
-          });
+          const userRows = await db
+            .select({ mainTeamId: users.mainTeamId })
+            .from(users)
+            .where(eq(users.id, payload.userId))
+            .limit(1);
+          const user = userRows[0];
           if (user?.mainTeamId) {
             newsList = await db.select().from(news).where(eq(news.relatedTeamId, user.mainTeamId)).orderBy(desc(news.publishedAt)).limit(20);
           }
