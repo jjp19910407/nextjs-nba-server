@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { signToken, verifyToken } from '@/lib/jwt';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');

@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 const WECHAT_APPID = process.env.WECHAT_APPID!;
 const WECHAT_SECRET = process.env.WECHAT_SECRET!;
 

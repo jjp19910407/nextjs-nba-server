@@ -4,6 +4,8 @@ import { posts, users, postLikes, postDislikes, favorites, polls, pollVotes } fr
 import { eq, and, sql } from 'drizzle-orm';
 import { verifyToken } from '@/lib/jwt';
 
+export const dynamic = 'force-dynamic';
+
 // 获取帖子详情
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {

@@ -5,6 +5,8 @@ import { verifyToken } from '@/lib/jwt';
 import { eq, desc, and, inArray } from 'drizzle-orm';
 import { sql as drizzleSql } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

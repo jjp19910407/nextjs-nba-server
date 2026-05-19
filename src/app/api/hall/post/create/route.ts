@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { posts, polls } from '@/db/schema';
 import { verifyToken } from '@/lib/jwt';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');

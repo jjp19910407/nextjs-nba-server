@@ -4,6 +4,8 @@ import { comments, users, posts, commentLikes, commentDislikes } from '@/db/sche
 import { verifyToken } from '@/lib/jwt';
 import { eq, and, isNull, asc, inArray, sql } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 // 获取留言列表（含嵌套回复）
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {

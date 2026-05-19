@@ -4,6 +4,8 @@ import { users } from '@/db/schema';
 import { verifyToken } from '@/lib/jwt';
 import { eq, and, ne } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('Authorization');
