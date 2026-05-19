@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
           creditScore: user.creditScore,
           points: user.points,
           level: user.level,
-          verified: user.creditScore >= 200, // 模拟认证状态
+          verified: (user.creditScore ?? 0) >= 200, // 模拟认证状态
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     let existingUser = existingUserRows[0];
 
     let userId: string;
-    let status: string;
+    let status: string | null;
 
     if (!existingUser) {
       // 新用户，创建 pending 状态账号
@@ -53,11 +53,8 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. 生成 JWT
-    const token = verifyToken ? null : await (await import('@/lib/jwt')).signToken({ userId, openid }); // 临时修复，实际应该导入 signToken
-
-    // 正确导入 signToken
-    const { signToken: realSignToken } = await import('@/lib/jwt');
-    const realToken = realSignToken({ userId, openid });
+    const { signToken } = await import('@/lib/jwt');
+    const realToken = signToken({ userId, openid });
 
     return NextResponse.json({
       code: 0,
